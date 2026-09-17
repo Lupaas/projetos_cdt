@@ -4,8 +4,11 @@ import os
 import pwinput
 
 # Define o caminho do banco de dados de forma dinâmica e segura usando a biblioteca os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # Pasta 'database'
+PROJETO_DIR = os.path.dirname(BASE_DIR)              # Pasta raiz do projeto
+
 DB_PATH = os.path.join(BASE_DIR, "acai_sistema.db")
+CONFIG_PATH = os.path.join(PROJETO_DIR, "config_acaiteria.json")
 
 def garantir_diretorio_banco():
     """Garante que a pasta do banco de dados exista no sistema."""
@@ -41,7 +44,7 @@ def inicializar_banco():
         )
     ''')
 
-    # 2. Tabela de Cardápio (Nova tabela baseada no seu desenho)
+    # 2. Tabela de Cardápio
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cardapio (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +55,7 @@ def inicializar_banco():
         )
     ''')
 
-    # 3. Tabela de Pedidos (Com Chaves Estrangeiras relacionando Clientes e Cardápio)
+    # 3. Tabela de Pedidos
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +75,7 @@ def inicializar_banco():
     conn.close()
 
 # =====================================================================
-# FUNÇÕES AUXILIARES E UTILITÁRIAS (os / pwinput)
+# FUNÇÕES AUXILIARES E UTILITÁRIAS (os / pwinput / json)
 # =====================================================================
 
 def limpar_tela():
@@ -83,6 +86,20 @@ def ler_dado_sensivel(mensagem="Digite um dado confidencial (ex: CPF): "):
     """Lê uma entrada do usuário no terminal de forma oculta usando pwinput."""
     return pwinput.pwinput(prompt=mensagem, mask="*")
 
+def carregar_configuracoes():
+    """Lê o arquivo config_acaiteria.json e retorna as configurações da loja."""
+    if not os.path.exists(CONFIG_PATH):
+        # Fallback caso o arquivo não seja localizado
+        return {
+            "nome_loja": "AçaíZon",
+            "versao_sistema": "1.0",
+            "tamanho_padrao_copo": "500ml",
+            "adicionais_padrao": ["Leite Condensado", "Granola", "Paçoca"]
+        }
+
+    with open(CONFIG_PATH, "r", encoding="utf-8") as file:
+        return json.load(file)
+
 # =====================================================================
 # 1. CREATE (Inserir)
 # =====================================================================
@@ -92,7 +109,6 @@ def cadastrar_cliente(nome, apelido, email, telefone, endereco, idade, cpf, face
     conn = conectar()
     cursor = conn.cursor()
     
-    # Converte o vetor numérico do rosto para string JSON para salvar no SQLite
     encoding_json = json.dumps(face_encoding) if face_encoding is not None else None
 
     try:
@@ -107,9 +123,9 @@ def cadastrar_cliente(nome, apelido, email, telefone, endereco, idade, cpf, face
         return False, "CPF já cadastrado."
     finally:
         conn.close()
-        
+
 def cadastrar_item_cardapio(nome_item, tamanho, preco, acompanhamentos):
-    """Insere um novo item de açaí/produto no cardápio."""
+    """Insere um novo item no cardápio."""
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute('''
@@ -120,17 +136,17 @@ def cadastrar_item_cardapio(nome_item, tamanho, preco, acompanhamentos):
     conn.close()
     return True
 
-def salvar_pedido(cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total):
+def salvar_pedido(cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total):
     """Salva um novo pedido e adiciona +10 pontos no clube de fidelidade Delírio Roxo."""
     conn = conectar()
     cursor = conn.cursor()
 
     cursor.execute('''
-        INSERT INTO pedidos (cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total))
+        INSERT INTO pedidos (cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total))
 
-    # Regra de Negócio: +10 pontos no Clube Delírio Roxo a cada pedido efetuado
+    # Regra de Negócio: +10 pontos no Clube Delírio Roxo
     cursor.execute('''
         UPDATE clientes SET pontos_fidelidade = pontos_fidelidade + 10 WHERE id = ?
     ''', (cliente_id,))
@@ -167,12 +183,15 @@ def buscar_cliente_por_id(cliente_id):
     return cliente
 
 def buscar_ultimo_pedido(cliente_id):
-    """Busca o último pedido do cliente para preencher a opção 'Peça o de sempre!'."""
+    """Busca o último pedido do cliente com detalhes do item para a opção 'Peça o de sempre!'."""
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT tamanho, toppings, forma_pagamento, opcao_entrega 
-        FROM pedidos WHERE cliente_id = ? ORDER BY id DESC LIMIT 1
+        SELECT p.id, c.nome_item, c.tamanho, c.acompanhamentos, p.forma_pagamento, p.tipo_entrega, p.valor_total
+        FROM pedidos p
+        LEFT JOIN cardapio c ON p.cardapio_id = c.id
+        WHERE p.cliente_id = ?
+        ORDER BY p.id DESC LIMIT 1
     ''', (cliente_id,))
     pedido = cursor.fetchone()
     conn.close()
@@ -216,4 +235,5 @@ def deletar_cliente(cliente_id):
 # Execução de teste
 if __name__ == "__main__":
     inicializar_banco()
-    print("Banco de dados do Açaízon criado e configurado com sucesso!")
+    config = carregar_configuracoes()
+    print(f"Banco de dados do {config.get('nome_loja', 'Açaízon')} criado e configurado com sucesso!")
