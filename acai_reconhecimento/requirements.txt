@@ -1,4 +1,3 @@
-sqlite3
 pwinput
 opencv-python
 face-recognition

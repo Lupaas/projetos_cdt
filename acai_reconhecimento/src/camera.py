@@ -3,7 +3,7 @@ import sqlite3
 import os
 
 # Caminho para o banco de dados compartilhado da açaíteria
-DB_NAME = 'acaiteria.db'
+DB_NAME = 'acai_sistema.db'
 
 def obter_todos_encodings():
     """

@@ -128,13 +128,17 @@ def cadastrar_item_cardapio(nome_item, tamanho, preco, acompanhamentos):
     """Insere um novo item no cardápio."""
     conn = conectar()
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO cardapio (nome_item, tamanho, preco, acompanhamentos)
-        VALUES (?, ?, ?, ?)
-    ''', (nome_item, tamanho, preco, acompanhamentos))
-    conn.commit()
-    conn.close()
-    return True
+    try:
+        cursor.execute('''
+            INSERT INTO cardapio (nome_item, tamanho, preco, acompanhamentos)
+            VALUES (?, ?, ?, ?)
+        ''', (nome_item, tamanho, preco, acompanhamentos))
+        conn.commit()
+        return True, cursor.lastrowid
+    except sqlite3.Error as e:
+        return False, str(e)
+    finally:
+        conn.close()
 
 def salvar_pedido(cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total):
     """Salva um novo pedido e adiciona +10 pontos no clube de fidelidade Delírio Roxo."""
@@ -170,7 +174,10 @@ def obter_todos_encodings():
     resultado = []
     for cliente_id, encoding_str in registros:
         if encoding_str:
-            resultado.append((cliente_id, json.loads(encoding_str)))
+            try:
+                resultado.append((cliente_id, json.loads(encoding_str)))
+            except json.JSONDecodeError:
+                continue
     return resultado
 
 def buscar_cliente_por_id(cliente_id):
