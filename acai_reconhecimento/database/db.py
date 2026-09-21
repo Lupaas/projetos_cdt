@@ -140,6 +140,12 @@ def cadastrar_item_cardapio(nome_item, tamanho, preco, acompanhamentos):
     finally:
         conn.close()
 
+def calcular_total_acai(preco_base, quantidade_toppings):
+    # Primeiros 2 toppings são grátis
+    toppings_extras = max(0, quantidade_toppings - 2)
+    taxa_adicional = toppings_extras * 3.00
+    return preco_base + taxa_adicional
+
 def salvar_pedido(cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total):
     """Salva um novo pedido e adiciona +10 pontos no clube de fidelidade Delírio Roxo."""
     conn = conectar()

@@ -1,35 +1,32 @@
 import cv2
-import sqlite3
+import sys
 import os
 
-# Caminho para o banco de dados compartilhado da açaíteria
-DB_NAME = 'acai_sistema.db'
+# Adiciona a pasta raiz ao PATH para conseguir importar o modulo database.db
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def obter_todos_encodings():
+# Importa as funções oficiais do seu Back-end (db.py)
+from database.db import buscar_cliente_por_id, buscar_ultimo_pedido, conectar
+
+def obter_ultimo_cliente_db():
     """
-    Função solicitada no roteiro: busca os dados/assinaturas 
-    faciais ou registros dos clientes cadastrados no SQLite.
+    Busca o cliente mais recente no SQLite via ID.
     """
-    if not os.path.exists(DB_NAME):
-        return []
-        
-    conexao = sqlite3.connect(DB_NAME)
-    cursor = conexao.cursor()
-    # Buscamos os dados dos clientes para validação
-    cursor.execute("SELECT id, nome, acai_preferido FROM clientes;")
-    resultados = cursor.fetchall()
-    conexao.close()
-    return resultados
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nome, apelido FROM clientes ORDER BY id DESC LIMIT 1;")
+    cliente = cursor.fetchone()
+    conn.close()
+    return cliente
 
 def reconhecer_cliente():
     """
-    Função da Pessoa 1 (Lari - Visão Computacional):
+    Função da Pessoa 1 (Visão Computacional - Modo Simulação):
     - Abre a webcam em tempo real usando OpenCV.
-    - Exibe elementos visuais guia na tela.
-    - Compara com os registros do banco de dados.
-    - Retorna os dados do cliente reconhecido ou 'novo_cliente'.
+    - Pressionar ESPAÇO simula a leitura biométrica com sucesso.
+    - Retorna o dicionário padronizado para o Front-end (Pessoa 3).
     """
-    print("[IA] Iniciando captura de vídeo (Webcam)...")
+    print("[IA] Iniciando captura de vídeo (Webcam) com OpenCV...")
     cap = cv2.VideoCapture(0)
     
     if not cap.isOpened():
@@ -37,8 +34,7 @@ def reconhecer_cliente():
         return {"status": "erro", "mensagem": "Câmera indisponível"}
 
     cliente_encontrado = None
-    
-    print("[IA] Olhe para a câmera. Pressione 'ESPAÇO' para simular o reconhecimento ou 'ESC' para sair.")
+    print("[IA] Olhe para a câmera. Pressione 'ESPAÇO' para simular a leitura biométrica ou 'ESC' para sair.")
 
     while True:
         ret, frame = cap.read()
@@ -46,33 +42,38 @@ def reconhecer_cliente():
             print("[ERRO] Falha ao capturar o frame da câmera.")
             break
             
-        # Adiciona elementos visuais na tela da câmera (Quadrado verde guia)
+        # Elementos visuais guia (Quadrado verde e texto da loja)
         altura, largura, _ = frame.shape
         cv2.rectangle(frame, (largura//3, altura//4), (2*largura//3, 3*altura//4), (0, 255, 0), 2)
         cv2.putText(frame, "Delirio Roxo - Posicione o rosto", (40, 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-        # Mostra o vídeo em tempo real na tela
         cv2.imshow('Delirio Roxo - Reconhecimento Facial', frame)
-        
         tecla = cv2.waitKey(1) & 0xFF
         
-        # Pressionar a tecla ESPAÇO (código 32) simula a captura e leitura do rosto
+        # Pressionar ESPAÇO (código 32) simula a validação biométrica
         if tecla == 32:
-            registros = obter_todos_encodings()
+            print("[IA] Processando leitura biométrica...")
+            cliente_db = obter_ultimo_cliente_db()
             
-            if registros:
-                # Simulando que identificou o primeiro cliente da lista do banco
-                # (Aqui no futuro entra o algoritmo real de face_recognition)
-                cliente_db = registros[0] 
+            if cliente_db:
+                cliente_id = cliente_db[0]
+                nome = cliente_db[1]
+                apelido = cliente_db[2]
+                
+                # Busca o histórico do último açaí pedido por esse cliente
+                ultimo_pedido = buscar_ultimo_pedido(cliente_id)
+
                 cliente_encontrado = {
                     "status": "encontrado",
-                    "id": cliente_db[0],
-                    "nome": cliente_db[1],
-                    "acai_preferido": cliente_db[2]
+                    "id": cliente_id,
+                    "nome": nome,
+                    "apelido": apelido,
+                    "ultimo_pedido": ultimo_pedido
                 }
+                print(f"[SUCESSO] Cliente reconhecido: {nome}")
             else:
-                # Se o banco estiver vazio, trata como cliente novo
+                print("[INFO] Nenhum cliente cadastrado no banco. Tratando como novo cliente.")
                 cliente_encontrado = {"status": "novo_cliente"}
             break
             
@@ -81,13 +82,10 @@ def reconhecer_cliente():
             cliente_encontrado = {"status": "cancelado"}
             break
 
-    # Libera a câmera e fecha a janela do OpenCV
     cap.release()
     cv2.destroyAllWindows()
-    
     return cliente_encontrado
 
-# Bloco para testar o arquivo de forma isolada se necessário
 if __name__ == "__main__":
     resultado = reconhecer_cliente()
     print("Resultado do reconhecimento:", resultado)
