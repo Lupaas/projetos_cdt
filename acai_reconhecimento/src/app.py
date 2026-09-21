@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image, ImageTk
+import os
 
 
 # ============================================================
@@ -121,13 +123,37 @@ def mostrar_inicio():
     )
     dica.pack()
 
-
 def mostrar_cardapio():
     """
     Mostra o cardápio.
     """
     limpar_conteudo()
 
+    # Logo
+caminho_logo = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "Capturar.PNG"
+)
+
+imagem_logo = Image.open(caminho_logo)
+imagem_logo = imagem_logo.resize((180, 100))
+
+logo_cardapio = ImageTk.PhotoImage(imagem_logo)
+
+label_logo = tk.Label(
+    area_conteudo,
+    image=logo_cardapio,
+    bg=ROXO_ESCURO
+)
+
+    label_logo.image = logo_cardapio
+
+label_logo.pack(
+    pady=(15, 5)
+)
+
+    # Título
     titulo = tk.Label(
         area_conteudo,
         text="🥣 Cardápio",
@@ -135,13 +161,14 @@ def mostrar_cardapio():
         fg=BRANCO,
         bg=ROXO_ESCURO
     )
+
     titulo.pack(pady=25)
 
+
     produtos = [
-        ("Açaí Tradicional", "R$ 15,00"),
-        ("Açaí com Morango", "R$ 18,00"),
-        ("Açaí com Banana", "R$ 17,00"),
-        ("Açaí Especial", "R$ 22,00"),
+        ("Açaí Tradicional 300ml", "R$ 15,00"),
+        ("Açaí tradicional 5Tigelão da casa"),
+        
     ]
 
     for nome, preco in produtos:
