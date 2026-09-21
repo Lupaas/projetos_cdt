@@ -76,6 +76,7 @@ def mostrar_inicio():
         highlightbackground=ROXO_MEDIO,
         highlightthickness=1
     )
+
     caixa.pack(
         fill="both",
         expand=True,
@@ -165,6 +166,7 @@ def mostrar_cardapio():
             fg=BRANCO,
             bg="#261044"
         )
+
         nome_label.pack(
             side="left",
             padx=20,
@@ -178,6 +180,7 @@ def mostrar_cardapio():
             fg=AMARELO,
             bg="#261044"
         )
+
         preco_label.pack(
             side="right",
             padx=20
@@ -195,6 +198,7 @@ def mostrar_cardapio():
             cursor="hand2",
             command=lambda p=nome: adicionar_produto(p)
         )
+
         botao.pack(
             side="right",
             padx=10
@@ -224,6 +228,7 @@ def mostrar_cliente():
         fg=BRANCO,
         bg=ROXO_ESCURO
     )
+
     titulo.pack(pady=25)
 
     formulario = tk.Frame(
@@ -260,6 +265,7 @@ def mostrar_cliente():
         insertbackground=BRANCO,
         relief="flat"
     )
+
     entrada_nome.pack(
         fill="x",
         padx=25,
@@ -287,6 +293,7 @@ def mostrar_cliente():
         insertbackground=BRANCO,
         relief="flat"
     )
+
     entrada_telefone.pack(
         fill="x",
         padx=25,
@@ -325,49 +332,139 @@ def mostrar_cliente():
     )
 
 
-def mostrar_configuracoes():
+def mostrar_delirio_roxo():
     """
-    Mostra configurações.
+    Mostra a área de fidelidade Delírio Roxo.
     """
     limpar_conteudo()
 
     titulo = tk.Label(
         area_conteudo,
-        text="⚙️ Configurações",
+        text="💜 Delírio Roxo",
         font=("Arial", 24, "bold"),
         fg=BRANCO,
         bg=ROXO_ESCURO
     )
-    titulo.pack(pady=30)
 
-    opcoes = [
-        "Configurações da conta",
-        "Configurações do sistema",
-        "Impressora",
-        "Forma de pagamento"
-    ]
+    titulo.pack(
+        pady=(30, 10)
+    )
 
-    for opcao in opcoes:
+    subtitulo = tk.Label(
+        area_conteudo,
+        text="Seu espaço de fidelidade no Açaízon!",
+        font=("Arial", 12),
+        fg=CINZA,
+        bg=ROXO_ESCURO
+    )
 
-        botao = tk.Button(
-            area_conteudo,
-            text=opcao,
-            font=("Arial", 12),
-            bg="#32134F",
-            fg=BRANCO,
-            activebackground=ROXO_MEDIO,
-            activeforeground=BRANCO,
-            relief="flat",
-            anchor="w",
-            cursor="hand2"
-        )
+    subtitulo.pack()
 
-        botao.pack(
-            fill="x",
-            padx=70,
-            pady=6,
-            ipady=10
-        )
+    # Caixa principal
+    caixa = tk.Frame(
+        area_conteudo,
+        bg="#21103D",
+        highlightbackground=ROXO_MEDIO,
+        highlightthickness=1
+    )
+
+    caixa.pack(
+        fill="both",
+        expand=True,
+        padx=50,
+        pady=30
+    )
+
+    # Saudação
+    tk.Label(
+        caixa,
+        text="Olá, cliente! 💜",
+        font=("Arial", 22, "bold"),
+        fg=BRANCO,
+        bg="#21103D"
+    ).pack(
+        pady=(50, 10)
+    )
+
+    tk.Label(
+        caixa,
+        text="Você está participando do\nprograma de fidelidade Delírio Roxo.",
+        font=("Arial", 11),
+        fg=CINZA,
+        bg="#21103D",
+        justify="center"
+    ).pack()
+
+    # Pontos
+    pontos = tk.Frame(
+        caixa,
+        bg="#32134F",
+        highlightbackground=ROXO_MEDIO,
+        highlightthickness=1
+    )
+
+    pontos.pack(
+        padx=60,
+        pady=30,
+        fill="x"
+    )
+
+    tk.Label(
+        pontos,
+        text="💜 Seus pontos",
+        font=("Arial", 12, "bold"),
+        fg=AMARELO,
+        bg="#32134F"
+    ).pack(
+        pady=(18, 5)
+    )
+
+    tk.Label(
+        pontos,
+        text="120 pontos",
+        font=("Arial", 28, "bold"),
+        fg=BRANCO,
+        bg="#32134F"
+    ).pack()
+
+    tk.Label(
+        pontos,
+        text="Faltam 30 pontos para o próximo benefício!",
+        font=("Arial", 9),
+        fg=CINZA,
+        bg="#32134F"
+    ).pack(
+        pady=(5, 18)
+    )
+
+    # Benefício
+    tk.Label(
+        caixa,
+        text="🎁 Próximo benefício",
+        font=("Arial", 11, "bold"),
+        fg=VERDE,
+        bg="#21103D"
+    ).pack(
+        pady=(5, 8)
+    )
+
+    tk.Label(
+        caixa,
+        text="Açaí tradicional grátis",
+        font=("Arial", 13, "bold"),
+        fg=BRANCO,
+        bg="#21103D"
+    ).pack()
+
+    tk.Label(
+        caixa,
+        text="Ao alcançar 150 pontos",
+        font=("Arial", 9),
+        fg=CINZA,
+        bg="#21103D"
+    ).pack(
+        pady=5
+    )
 
 
 def sair():
@@ -547,9 +644,9 @@ botao_cliente = criar_botao_menu(
     mostrar_cliente
 )
 
-botao_config = criar_botao_menu(
-    "⚙️   Configurações",
-    mostrar_configuracoes
+botao_delirio = criar_botao_menu(
+    "💜   Delírio Roxo",
+    mostrar_delirio_roxo
 )
 
 
