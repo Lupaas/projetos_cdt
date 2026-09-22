@@ -1,34 +1,27 @@
 import sqlite3
 import json
 import os
-import pwinput
 
-# Define o caminho do banco de dados de forma dinâmica e segura usando a biblioteca os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # Pasta 'database'
-PROJETO_DIR = os.path.dirname(BASE_DIR)              # Pasta raiz do projeto
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DB_PATH = os.path.join(BASE_DIR, "acai_sistema.db")
-CONFIG_PATH = os.path.join(PROJETO_DIR, "config_acaiteria.json")
+ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
+LOGO_PATH = os.path.join(ASSETS_DIR, "logo_acaizon.png")
 
-def garantir_diretorio_banco():
-    """Garante que a pasta do banco de dados exista no sistema."""
-    diretorio = os.path.dirname(DB_PATH)
-    if not os.path.exists(diretorio):
-        os.makedirs(diretorio, exist_ok=True)
+def garantir_diretorios():
+    os.makedirs(BASE_DIR, exist_ok=True)
+    os.makedirs(ASSETS_DIR, exist_ok=True)
 
 def conectar():
-    """Cria e retorna a conexão com o banco de dados."""
-    garantir_diretorio_banco()
+    garantir_diretorios()
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON;")  # Ativa chaves estrangeiras
+    conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
 def inicializar_banco():
-    """Cria as 3 tabelas necessárias caso ainda não existam."""
     conn = conectar()
     cursor = conn.cursor()
 
-    # 1. Tabela de Clientes
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,76 +33,41 @@ def inicializar_banco():
             idade INTEGER,
             cpf TEXT UNIQUE NOT NULL,
             pontos_fidelidade INTEGER DEFAULT 0,
-            face_encoding TEXT
+            face_encoding TEXT NOT NULL
         )
     ''')
 
-    # 2. Tabela de Cardápio
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS cardapio (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_item TEXT NOT NULL,
-            tamanho TEXT,
-            preco REAL NOT NULL,
-            acompanhamentos TEXT
-        )
-    ''')
-
-    # 3. Tabela de Pedidos
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pedidos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cliente_id INTEGER NOT NULL,
-            cardapio_id INTEGER,
-            quantidade INTEGER DEFAULT 1,
+            tamanho TEXT NOT NULL,
+            toppings TEXT,
             forma_pagamento TEXT,
-            tipo_entrega TEXT,
-            valor_total REAL,
-            data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE,
-            FOREIGN KEY (cardapio_id) REFERENCES cardapio (id) ON DELETE SET NULL
+            opcao_entrega TEXT,
+            subtotal REAL,
+            taxa_entrega REAL,
+            total REAL,
+            data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cliente_id) REFERENCES clientes (id) ON DELETE CASCADE
         )
     ''')
 
     conn.commit()
     conn.close()
 
-# =====================================================================
-# FUNÇÕES AUXILIARES E UTILITÁRIAS (os / pwinput / json)
-# =====================================================================
+def obter_caminho_logo():
+    if os.path.exists(LOGO_PATH):
+        return LOGO_PATH
+    return None
 
-def limpar_tela():
-    """Limpa o console de acordo com o sistema operacional."""
-    os.system('cls' if os.name == 'nt' else 'clear')
+def cadastrar_cliente_com_faceid(nome, apelido, email, telefone, endereco, idade, cpf, face_encoding):
+    if face_encoding is None:
+        return False, "O cadastramento do Face ID é obrigatório."
 
-def ler_dado_sensivel(mensagem="Digite um dado confidencial (ex: CPF): "):
-    """Lê uma entrada do usuário no terminal de forma oculta usando pwinput."""
-    return pwinput.pwinput(prompt=mensagem, mask="*")
-
-def carregar_configuracoes():
-    """Lê o arquivo config_acaiteria.json e retorna as configurações da loja."""
-    if not os.path.exists(CONFIG_PATH):
-        # Fallback caso o arquivo não seja localizado
-        return {
-            "nome_loja": "AçaíZon",
-            "versao_sistema": "1.0",
-            "tamanho_padrao_copo": "500ml",
-            "adicionais_padrao": ["Leite Condensado", "Granola", "Paçoca"]
-        }
-
-    with open(CONFIG_PATH, "r", encoding="utf-8") as file:
-        return json.load(file)
-
-# =====================================================================
-# 1. CREATE (Inserir)
-# =====================================================================
-
-def cadastrar_cliente(nome, apelido, email, telefone, endereco, idade, cpf, face_encoding=None):
-    """Insere um novo cliente no banco de dados."""
     conn = conectar()
     cursor = conn.cursor()
-    
-    encoding_json = json.dumps(face_encoding) if face_encoding is not None else None
+    encoding_json = json.dumps(face_encoding)
 
     try:
         cursor.execute('''
@@ -117,60 +75,13 @@ def cadastrar_cliente(nome, apelido, email, telefone, endereco, idade, cpf, face
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (nome, apelido, email, telefone, endereco, idade, cpf, encoding_json))
         conn.commit()
-        cliente_id = cursor.lastrowid
-        return True, cliente_id
-    except sqlite3.IntegrityError:
-        return False, "CPF já cadastrado."
-    finally:
-        conn.close()
-
-def cadastrar_item_cardapio(nome_item, tamanho, preco, acompanhamentos):
-    """Insere um novo item no cardápio."""
-    conn = conectar()
-    cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            INSERT INTO cardapio (nome_item, tamanho, preco, acompanhamentos)
-            VALUES (?, ?, ?, ?)
-        ''', (nome_item, tamanho, preco, acompanhamentos))
-        conn.commit()
         return True, cursor.lastrowid
-    except sqlite3.Error as e:
-        return False, str(e)
+    except sqlite3.IntegrityError:
+        return False, "CPF já cadastrado no Açaízon."
     finally:
         conn.close()
-
-def calcular_total_acai(preco_base, quantidade_toppings):
-    # Primeiros 2 toppings são grátis
-    toppings_extras = max(0, quantidade_toppings - 2)
-    taxa_adicional = toppings_extras * 3.00
-    return preco_base + taxa_adicional
-
-def salvar_pedido(cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total):
-    """Salva um novo pedido e adiciona +10 pontos no clube de fidelidade Delírio Roxo."""
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        INSERT INTO pedidos (cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (cliente_id, cardapio_id, quantidade, forma_pagamento, tipo_entrega, valor_total))
-
-    # Regra de Negócio: +10 pontos no Clube Delírio Roxo
-    cursor.execute('''
-        UPDATE clientes SET pontos_fidelidade = pontos_fidelidade + 10 WHERE id = ?
-    ''', (cliente_id,))
-
-    conn.commit()
-    conn.close()
-    return True
-
-# =====================================================================
-# 2. READ (Consultar)
-# =====================================================================
 
 def obter_todos_encodings():
-    """Retorna uma lista de tuplas (cliente_id, face_encoding) para a IA (Pessoa 1) comparar."""
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute('SELECT id, face_encoding FROM clientes WHERE face_encoding IS NOT NULL')
@@ -182,71 +93,51 @@ def obter_todos_encodings():
         if encoding_str:
             try:
                 resultado.append((cliente_id, json.loads(encoding_str)))
-            except json.JSONDecodeError:
-                continue
+            except Exception:
+                pass
     return resultado
 
 def buscar_cliente_por_id(cliente_id):
-    """Busca dados completos do cliente pelo ID."""
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute('SELECT id, nome, apelido, email, telefone, endereco, idade, cpf, pontos_fidelidade FROM clientes WHERE id = ?', (cliente_id,))
-    cliente = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    return cliente
+
+    if row:
+        return {
+            "id": row[0], "nome": row[1], "apelido": row[2], "email": row[3],
+            "telefone": row[4], "endereco": row[5], "idade": row[6], "cpf": row[7],
+            "pontos_fidelidade": row[8]
+        }
+    return None
 
 def buscar_ultimo_pedido(cliente_id):
-    """Busca o último pedido do cliente com detalhes do item para a opção 'Peça o de sempre!'."""
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT p.id, c.nome_item, c.tamanho, c.acompanhamentos, p.forma_pagamento, p.tipo_entrega, p.valor_total
-        FROM pedidos p
-        LEFT JOIN cardapio c ON p.cardapio_id = c.id
-        WHERE p.cliente_id = ?
-        ORDER BY p.id DESC LIMIT 1
+        SELECT tamanho, toppings, forma_pagamento, opcao_entrega 
+        FROM pedidos WHERE cliente_id = ? ORDER BY id DESC LIMIT 1
     ''', (cliente_id,))
-    pedido = cursor.fetchone()
+    row = cursor.fetchone()
     conn.close()
-    return pedido
 
-# =====================================================================
-# 3. UPDATE (Atualizar)
-# =====================================================================
+    if row:
+        return {"tamanho": row[0], "toppings": row[1], "forma_pagamento": row[2], "opcao_entrega": row[3]}
+    return None
 
-def atualizar_cliente(cliente_id, nome=None, telefone=None, endereco=None, face_encoding=None):
-    """Atualiza dados cadastrais ou a foto/reconhecimento facial do cliente."""
+def salvar_pedido(cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total):
     conn = conectar()
     cursor = conn.cursor()
 
-    if face_encoding is not None:
-        cursor.execute('UPDATE clientes SET face_encoding = ? WHERE id = ?', (json.dumps(face_encoding), cliente_id))
-    if nome:
-        cursor.execute('UPDATE clientes SET nome = ? WHERE id = ?', (nome, cliente_id))
-    if telefone:
-        cursor.execute('UPDATE clientes SET telefone = ? WHERE id = ?', (telefone, cliente_id))
-    if endereco:
-        cursor.execute('UPDATE clientes SET endereco = ? WHERE id = ?', (endereco, cliente_id))
+    cursor.execute('''
+        INSERT INTO pedidos (cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (cliente_id, tamanho, toppings, forma_pagamento, opcao_entrega, subtotal, taxa_entrega, total))
 
+    cursor.execute('UPDATE clientes SET pontos_fidelidade = pontos_fidelidade + 10 WHERE id = ?', (cliente_id,))
     conn.commit()
     conn.close()
     return True
 
-# =====================================================================
-# 4. DELETE (Deletar)
-# =====================================================================
-
-def deletar_cliente(cliente_id):
-    """Remove o cliente do sistema e apaga o histórico de pedidos."""
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM clientes WHERE id = ?', (cliente_id,))
-    conn.commit()
-    conn.close()
-    return True
-
-# Execução de teste
-if __name__ == "__main__":
-    inicializar_banco()
-    config = carregar_configuracoes()
-    print(f"Banco de dados do {config.get('nome_loja', 'Açaízon')} criado e configurado com sucesso!")
+inicializar_banco()
