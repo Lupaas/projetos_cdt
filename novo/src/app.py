@@ -3,6 +3,7 @@ import sys
 import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, '..'))
@@ -17,6 +18,7 @@ ROXO_MEDIO = "#5A1B91"
 ROSA, ROSA_CLARO = "#E91E83", "#F52B91"
 AMARELO, BRANCO, CINZA, VERDE = "#FFD21C", "#FFFFFF", "#B9AFC8", "#42A62A"
 
+logo_img_ref = None
 cliente_logado = None 
 carrinho = [] 
 desconto_fidelidade = 0.0
@@ -62,6 +64,33 @@ ACOMPANHAMENTOS = [
     "Leite em Pó", "Granola", "Paçoca", "Leite Condensado",
     "Morango", "Banana", "Nutella", "Kiwi", "Mel", "Confete"
 ]
+
+def carregar_logo():
+    global logo_img_ref
+    
+    # Atualizado para buscar arquivo .png
+    caminhos_possiveis = [
+        os.path.join(PROJECT_ROOT, "assets", "logo_acai.png"),
+        os.path.join(BASE_DIR, "assets", "logo_acai.png"),
+        os.path.join(os.path.dirname(__file__), "..", "assets", "logo_acai.png"),
+        os.path.join("assets", "logo_acai.png")
+    ]
+    
+    for caminho in caminhos_possiveis:
+        if os.path.exists(caminho):
+            try:
+                img = Image.open(caminho)
+                # Garante que a transparência do PNG seja preservada
+                img = img.convert("RGBA")
+                img = img.resize((120, 120), Image.Resampling.LANCZOS)
+                logo_img_ref = ImageTk.PhotoImage(img)
+                return logo_img_ref
+            except Exception as e:
+                print(f"Erro ao carregar imagem PNG: {e}")
+                return None
+                
+    print("⚠️ Imagem 'logo_acai.png' não foi encontrada na pasta 'assets'.")
+    return None
 
 def limpar_conteudo():
     for widget in area_conteudo.winfo_children():
@@ -181,13 +210,13 @@ def abrir_modal_cadastro():
 def abrir_modal_personalizar(produto):
     win = tk.Toplevel(janela)
     win.title(f"Personalizar {produto['nome']}")
-    win.geometry("400x500")
+    win.geometry("420x550")
     win.configure(bg=ROXO_ESCURO)
 
     tk.Label(win, text=f"{produto['emoji']} {produto['nome']}", font=("Arial", 14, "bold"), fg=BRANCO, bg=ROXO_ESCURO).pack(pady=10)
 
-    # Escolha do Tamanho
-    tk.Label(win, text="Escolha o Tamanho:", font=("Arial", 10, "bold"), fg=AMARELO, bg=ROXO_ESCURO).pack(anchor="w", padx=20, pady=(5, 2))
+    # Seleção de Tamanho
+    tk.Label(win, text="1. Escolha o Tamanho:", font=("Arial", 10, "bold"), fg=AMARELO, bg=ROXO_ESCURO).pack(anchor="w", padx=20, pady=(5, 2))
     tamanho_var = tk.StringVar(value="500ml")
 
     f_tamanhos = tk.Frame(win, bg=ROXO_ESCURO)
@@ -198,8 +227,8 @@ def abrir_modal_personalizar(produto):
     r3 = tk.Radiobutton(f_tamanhos, text=f"700ml (R$ {produto['preco_700ml']:.2f})", variable=tamanho_var, value="700ml", bg=ROXO_ESCURO, fg=BRANCO, selectcolor="#21103D", activebackground=ROXO_ESCURO)
     r1.pack(anchor="w"); r2.pack(anchor="w"); r3.pack(anchor="w")
 
-    # Acompanhamentos
-    tk.Label(win, text="Escolha os Acompanhamentos:", font=("Arial", 10, "bold"), fg=AMARELO, bg=ROXO_ESCURO).pack(anchor="w", padx=20, pady=(15, 2))
+    # Seleção de Acompanhamentos (Toppings)
+    tk.Label(win, text="2. Escolha os Acompanhamentos:", font=("Arial", 10, "bold"), fg=AMARELO, bg=ROXO_ESCURO).pack(anchor="w", padx=20, pady=(15, 2))
     
     f_toppings = tk.Frame(win, bg="#21103D", highlightbackground=ROXO_MEDIO, highlightthickness=1)
     f_toppings.pack(fill="both", expand=True, padx=20, pady=5)
@@ -211,29 +240,57 @@ def abrir_modal_personalizar(produto):
         cb.pack(anchor="w", padx=10, pady=1)
         checks[top] = var
 
-    def adicionar():
+    # Ação de Adicionar ao Carrinho
+    def adicionar_personalizado():
         tam = tamanho_var.get()
-        preco = produto[f'preco_{tam}']
+        preco_base = produto[f'preco_{tam}']
+        
+        # Coleta os acompanhamentos marcados
         selecionados = [top for top, var in checks.items() if var.get()]
-        detalhes_str = f"{tam} | " + (", ".join(selecionados) if selecionados else "Sem extras")
+        
+        detalhes_str = f"{tam} | " + (", ".join(selecionados) if selecionados else "Sem acompanhamentos")
 
+        # Adiciona o item montado na lista do carrinho
         carrinho.append({
-            "nome": produto["nome"],
+            "nome": f"{produto['nome']} ({tam})",
             "tamanho": tam,
-            "toppings": ", ".join(selecionados),
+            "toppings": ", ".join(selecionados) if selecionados else "Nenhum",
             "detalhes": detalhes_str,
-            "preco": preco
+            "preco": preco_base
         })
+        
+        # Atualiza a interface e fecha a janela
         atualizar_painel_direito()
         win.destroy()
-        messagebox.showinfo("Açaízon", f"{produto['nome']} adicionado ao carrinho!")
+        messagebox.showinfo("Açaízon", "Seu açaí personalizado foi adicionado ao carrinho!")
 
-    tk.Button(win, text="Adicionar ao Carrinho 🛒", font=("Arial", 11, "bold"), bg=ROSA, fg=BRANCO, relief="flat", command=adicionar).pack(pady=15)
+    tk.Button(
+        win, 
+        text="Adicionar ao Carrinho 🛒", 
+        font=("Arial", 11, "bold"), 
+        bg=ROSA, 
+        fg=BRANCO, 
+        relief="flat", 
+        cursor="hand2",
+        command=adicionar_personalizado
+    ).pack(pady=15)
 
 def mostrar_inicio():
     limpar_conteudo()
     tk.Label(area_conteudo, text="Bem-vindo ao Açaízon!", font=("Arial", 24, "bold"), fg=BRANCO, bg=ROXO_ESCURO).pack(pady=(35, 10))
     tk.Label(area_conteudo, text="Mais que açaí, uma energia pra você!", font=("Arial", 12), fg=CINZA, bg=ROXO_ESCURO).pack()
+
+def adicionar_direto_ao_carrinho(produto, tamanho="500ml"):
+    preco = produto[f'preco_{tamanho}']
+    carrinho.append({
+        "nome": produto["nome"],
+        "tamanho": tamanho,
+        "toppings": "Receita Padrão",
+        "detalhes": f"{tamanho} | Padrão da Casa",
+        "preco": preco
+    })
+    atualizar_painel_direito()
+    messagebox.showinfo("Açaízon", f"{produto['nome']} ({tamanho}) adicionado ao carrinho!")
 
 def mostrar_cardapio():
     limpar_conteudo()
@@ -252,11 +309,20 @@ def mostrar_cardapio():
         tk.Label(info_frame, text=prod["descricao"], font=("Arial", 9), fg=CINZA, bg="#21103D", wraplength=450, justify="left").pack(anchor="w")
         tk.Label(info_frame, text=f"A partir de R$ {prod['preco_300ml']:.2f}", font=("Arial", 10, "bold"), fg=BRANCO, bg="#21103D").pack(anchor="w", pady=(2, 0))
 
-        tk.Button(
-            card, text="Personalizar e Pedir", font=("Arial", 9, "bold"),
-            bg=ROSA, fg=BRANCO, relief="flat", cursor="hand2",
-            command=lambda p=prod: abrir_modal_personalizar(p)
-        ).pack(side="right", padx=15, pady=15)
+        # VERIFICAÇÃO: Se for o "Monte o seu Açaí" (ID 1), abre a personalização. 
+        # Caso contrário, exibe o botão de adicionar direto.
+        if prod["id"] == 1:
+            tk.Button(
+                card, text="🛠️ Personalizar e Pedir", font=("Arial", 9, "bold"),
+                bg=ROSA, fg=BRANCO, relief="flat", cursor="hand2",
+                command=lambda p=prod: abrir_modal_personalizar(p)
+            ).pack(side="right", padx=15, pady=15)
+        else:
+            tk.Button(
+                card, text="🛒 Adicionar (500ml)", font=("Arial", 9, "bold"),
+                bg=VERDE, fg=BRANCO, relief="flat", cursor="hand2",
+                command=lambda p=prod: adicionar_direto_ao_carrinho(p, "500ml")
+            ).pack(side="right", padx=15, pady=15)
 
 def mostrar_fidelidade():
     limpar_conteudo()
@@ -352,9 +418,25 @@ def mostrar_comprovante_e_status(pagamento, entrega, subtotal, taxa, total):
     tk.Button(card, text="Voltar ao Início", font=("Arial", 10, "bold"), bg=AMARELO, fg="#3B2600", command=novo).pack(pady=10)
 
 # Layout Principal (Design e Estrutura Inicial Restaurados)
-cabecalho = tk.Frame(janela, bg="#3A075C", height=80)
+cabecalho = tk.Frame(janela, bg="#3A075C", height=140)
 cabecalho.pack(side="top", fill="x")
-tk.Label(cabecalho, text="🍇 Açaízon", font=("Arial", 24, "bold"), fg=BRANCO, bg="#3A075C").pack(side="left", padx=20)
+
+conteudo_cabecalho = tk.Frame(cabecalho, bg="#3A075C")
+conteudo_cabecalho.place(relx=0.5, rely=0.5, anchor="center")
+
+imagem_logo_carregada = carregar_logo()
+
+if imagem_logo_carregada:
+    # bd=0 e highlightthickness=0 removem qualquer borda ao redor do Label
+    lbl_logo_img = tk.Label(
+        conteudo_cabecalho, 
+        image=imagem_logo_carregada, 
+        bg="#3A075C", 
+        bd=0, 
+        highlightthickness=0
+    )
+    lbl_logo_img.image = imagem_logo_carregada
+    lbl_logo_img.pack(side="left", padx=10)
 
 corpo = tk.Frame(janela, bg=ROXO_ESCURO)
 corpo.pack(fill="both", expand=True)
